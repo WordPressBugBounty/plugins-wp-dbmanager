@@ -1,6 +1,8 @@
 <?php
-/*
- * Uninstall plugin
+/**
+ * Uninstall routine, removes the plugin options and scheduled events.
+ *
+ * @package WP-DBManager
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -8,28 +10,32 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 if ( is_multisite() ) {
-	$ms_sites = function_exists( 'get_sites' ) ? get_sites() : wp_get_sites();
+	// number => 0 lifts the default limit of 100, a network can be larger.
+	$ms_sites = get_sites( array( 'number' => 0 ) );
 
-	if ( 0 < sizeof( $ms_sites ) ) {
+	if ( 0 < count( $ms_sites ) ) {
 		foreach ( $ms_sites as $ms_site ) {
-			$blog_id = class_exists( 'WP_Site' ) ? $ms_site->blog_id : $ms_site['blog_id'];
-			switch_to_blog( $blog_id );
-			plugin_uninstalled();
+			switch_to_blog( $ms_site->blog_id );
+			dbmanager_uninstalled();
+			// Paired inside the loop, switch_to_blog() stacks.
+			restore_current_blog();
 		}
 	}
-
-	restore_current_blog();
 } else {
-	plugin_uninstalled();
+	dbmanager_uninstalled();
 }
 
 /**
  * Delete plugin data when uninstalled
  *
+ * The database backup files are deliberately left on disk. They are the
+ * user's data, not the plugin's, and removing the plugin should not
+ * destroy the only copy of their backups.
+ *
  * @access public
  * @return void
  */
-function plugin_uninstalled() {
+function dbmanager_uninstalled() {
 	$option_name = 'dbmanager_options';
 
 	delete_option( $option_name );

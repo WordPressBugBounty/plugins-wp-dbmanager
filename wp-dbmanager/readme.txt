@@ -1,10 +1,13 @@
 # WP-DBManager
 Contributors: GamerZ  
-Donate link: http://lesterchan.net/site/donation/  
-Tags: database, manage, wp-dbmanager, manager, table, optimize, backup, queries, query, drop, empty, tables, table, run, repair, cron, schedule, scheduling, automatic  
-Requires at least: 4.0  
-Tested up to: 6.7  
-Stable tag: 2.80.10  
+Donate link: https://lesterchan.net/site/donation/  
+Tags: database, backup, restore, optimize, repair  
+Requires at least: 6.0  
+Tested up to: 7.0  
+Stable tag: 3.0.0  
+Requires PHP: 7.4  
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Manages your WordPress database.
 
@@ -14,34 +17,64 @@ Allows you to optimize database, repair database, backup database, restore datab
 ## General Usage
 1. Activate `WP-DBManager` Plugin
 1. The script will automatically create a folder called `backup-db` in the wp-content folder if that folder is writable. If it is not created, please create the folder and ensure that the folder is writable
-1. Open `Folder: wp-content/backup-db`
-1. If you are on Apache, move the `htaccess.txt` file from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/.htaccess` if it is not there already
-1. If you are on IIS, move the `Web.config.txt` file from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/Web.config` if it is not there already
-1. Move `index.php` file from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/index.php` if it is not there already
 1. Go to `WP-Admin -> Database -> DB Options` to configure the database options
+1. Secure the backup folder, see below
+1. Go to `WP-Admin -> Database -> Backup DB`, which checks whether the folder is actually reachable over HTTP and tells you if it is
 
-### Build Status
-[![Build Status](https://travis-ci.org/lesterchan/wp-dbmanager.svg?branch=master)](https://travis-ci.org/lesterchan/wp-dbmanager)
+## Securing The Backup Folder
+A database backup contains everything, including your users table. Anyone who can guess a backup file name can download the lot, so the folder must not be served over HTTP.
+
+**The reliable option, on any server:** set `Path To Backup` under `WP-Admin -> Database -> DB Options` to a folder outside your web root, for example `/var/www/example.com/backup-db` when WordPress lives in `/var/www/example.com/public_html`. Nothing served, nothing to configure.
+
+If the folder has to stay inside the web root:
+
+* **Apache** — move `htaccess.txt` from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/.htaccess`
+* **IIS** — move `Web.config.txt` from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/Web.config`
+* **nginx** — nginx does not read `.htaccess` files, so the file above does nothing. Add this to your server block and reload nginx:
+
+~~~nginx
+location ^~ /wp-content/backup-db/ { deny all; }
+~~~
+
+Move `index.php` from `Folder: wp-content/plugins/wp-dbmanager` to `Folder: wp-content/backup-db/index.php` as well, so the folder cannot be listed.
+
+The `Backup DB` page requests a file from the folder and reports what the server actually returns, so you can confirm the folder is closed rather than assume it.
 
 ### Development
 * [https://github.com/lesterchan/wp-dbmanager](https://github.com/lesterchan/wp-dbmanager "https://github.com/lesterchan/wp-dbmanager")
 
-### Translations
-* [http://dev.wp-plugins.org/browser/wp-dbmanager/i18n/](http://dev.wp-plugins.org/browser/wp-dbmanager/i18n/ "http://dev.wp-plugins.org/browser/wp-dbmanager/i18n/")
-
 ### Credits
-* Plugin icon by [Freepik](http://www.freepik.com) from [Flaticon](http://www.flaticon.com)
+* Plugin icon by [Freepik](https://www.freepik.com) from [Flaticon](https://www.flaticon.com)
 
 ### Donations
 * I spent most of my free time creating, updating, maintaining and supporting these plugins, if you really love my plugins and could spare me a couple of bucks, I will really appreciate it. If not feel free to use it without any obligations.
 
-### Disclaimer
-* Note that this plugin passes your datababase password via --password in the command line of mysqldump. This is convenient but as a trade off, it is insecure.
-* On some systems, your password becomes visible to system status programs such as ps that may be invoked by other users to display command lines. MySQL clients typically overwrite the command-line password argument with zeros during their initialization sequence. However, there is still a brief interval during which the value is visible. Also, on some systems this overwriting strategy is ineffective and the password remains visible to ps. Source: [End-User Guidelines for Password Security](http://dev.mysql.com/doc/refman/5.5/en/password-security-user.html)
-* If this is a concern to you, I recommend another database backup plugin called [WP-DB-Backup](https://wordpress.org/plugins/wp-db-backup/)
-* To know about the difference between WP-DBManager and WP-DB-backup, checkout __What is the difference between WP-DBManager and WP-DB-Backup?__ in the [FAQ section](https://wordpress.org/plugins/wp-dbmanager/faq/).
-
 ## Changelog
+### Version 3.0.0
+* NOTE: The mysqldump and mysql paths are now passed as a single argument. If you added extra flags to either path under DB Options, move them out or your backups will fail.
+* NOTE: Requires WordPress 6.0 or later, up from 4.0, and PHP 7.4 or later.
+* NOTE: Backup file names now carry a real Unix timestamp. Backups taken before this release will show a date shifted by your timezone offset. The files themselves are fine.
+* NEW: WordPress 7.0
+* NEW: The Backup Database page now asks the server whether the backup folder is actually reachable over HTTP, instead of assuming a dropped in .htaccess protects it. nginx is detected and given a configuration snippet that works.
+* NEW: 'Attach Backup File' option to control whether the scheduled backup e-mail carries the database file. Existing sites keep attaching it.
+* NEW: New backups are gzipped by default.
+* CHANGED: New installs no longer prefill the backup e-mail address, so scheduled backup e-mails are opt-in.
+* CHANGED: Translations now come from the WordPress.org language packs. The bundled .pot file and the load_plugin_textdomain() call are gone, both were redundant.
+* FIXED: Escape all output on the admin screens to prevent XSS.
+* FIXED: Validate table names against the database before emptying, dropping, optimizing or repairing.
+* FIXED: The database password is no longer passed on the command line.
+* FIXED: Require the `install_plugins` capability for the backup folder notice, the download and the folder fix.
+* FIXED: Only download backup files that resolve inside the backup folder.
+* FIXED: Validate the mysqldump, mysql and backup paths independently.
+* FIXED: Every file now refuses to run when loaded directly.
+* FIXED: Cron backups no longer rename and e-mail a dump that failed, an empty file is no longer passed off as a backup.
+* FIXED: Restoring no longer reports success when the restore did not run.
+* FIXED: Keep pruning old backups until the maximum is met, and treat a maximum below 1 as no limit.
+* FIXED: Two backups written in the same second are no longer invisible to pruning and the manage screen.
+* FIXED: Network activation and uninstall now cover every site, not just the first 100.
+* FIXED: Uninstalling on multisite no longer overwrites the current site ID while it works.
+* FIXED: Removed jQuery dependency.
+
 ### Version 2.80.10
 * FIXED: Don't throw fatal error if unknown .sql files are inside the database backup folder.
 
@@ -135,7 +168,7 @@ Allows you to optimize database, repair database, backup database, restore datab
 * FIXED: Set default character set to UTF-8. Props Karsonito
 
 ### Version 2.64
-* FIXED: Use intval() instead of is_int() when checking for port number. Props [Webby Scots](http://webbyscots.com/ "Webby Scots")
+* FIXED: Use intval() instead of is_int() when checking for port number. Props [Webby Scots](https://webbyscots.com/ "Webby Scots")
 
 ### Version 2.63 (03-05-2011)
 * NEW: Added Auto Repair Functionality
